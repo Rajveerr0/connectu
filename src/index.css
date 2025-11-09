@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Prevent subpixel seam between light sections and dark footer */
+section, main, div {
+  background-clip: border-box;
+}
+
+body::after {
+  content: "";
+  display: block;
+  height: 1px;
+  background-color: #0c4a6e; /* same as bg-blue-900 */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 998;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+html, body {
+  background-color: #fff;
+  overflow-x: hidden;
+}
