@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 const MentorshipHub = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expertiseFilter, setExpertiseFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState(''); // <--- keeping your original variable name to avoid UI changes
   const [mentors, setMentors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingMentorId, setBookingMentorId] = useState(null);
@@ -25,17 +25,30 @@ const MentorshipHub = () => {
   const { canApply } = useApplication();
   const { user, isAuthenticated } = useAuth();
 
+  // ------------------------------------------------------------
+  // NOTE: fetchMentors should run when search/filters change.
+  // also keep modal scroll-control in a SEPARATE effect (see below).
+  // ------------------------------------------------------------
   useEffect(() => {
     fetchMentors();
+    // removed body overflow control from here — handled by separate effect below
   }, [searchTerm, expertiseFilter, locationFilter]);
 
+  // ----------------------
+  // Fetch mentors (minimal change)
+  // ----------------------
   const fetchMentors = async () => {
     try {
       setLoading(true);
+
+      // ---------- MINIMAL CHANGE ----------
+      // keep your UI variable "locationFilter" but send it as `availability`
+      // because backend expects availability. This avoids changing dropdown names.
       const params = {};
       if (searchTerm) params.search = searchTerm;
       if (expertiseFilter) params.expertise = expertiseFilter;
-      if (locationFilter) params.location = locationFilter;
+      if (locationFilter) params.availability = locationFilter;
+ // <-- mapped to backend availability
 
       const response = await publicAPI.getMentors(params);
       setMentors(response.data.mentors || []);
@@ -48,13 +61,15 @@ const MentorshipHub = () => {
   };
 
   // Get filter options from actual data
-  const expertiseOptions = [...new Set(mentors.flatMap(mentor => 
-    mentor.expertise ? [mentor.expertise] : []
-  ))];
-  
-  const locationOptions = [...new Set(mentors.map(mentor => mentor.location).filter(Boolean))];
+  // ---------- MINIMAL CHANGE ----------
+  // expertiseOptions: same idea but simplified to map/filter
+  const expertiseOptions = [...new Set(mentors.map(m => m.expertise).filter(Boolean))];
 
-  // Fallback image URL
+  // locationOptions : we keep the same dropdown variable name but populate it
+  // with mentor.availability values (so your existing UI doesn't need renaming)
+  const locationOptions = [...new Set(mentors.map(m => m.availability).filter(Boolean))];
+
+  // Fallback image URL (unchanged)
   const getFallbackImage = (name) => {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=150`;
   };
@@ -62,8 +77,9 @@ const MentorshipHub = () => {
   const handleMessageMentor = (mentor) => {
     if (!canApply('mentorship')) return;
 
-    // Redirect to messaging system or open chat
-    alert(`Messaging feature for ${mentor.name} will be implemented soon!`);
+    // Use users.name if available, else fallback
+    const displayName = mentor.users?.name || mentor.name || 'the mentor';
+    alert(`Messaging feature for ${displayName} will be implemented soon!`);
   };
 
   const handleRequestMentorship = (mentor) => {
@@ -137,7 +153,9 @@ const MentorshipHub = () => {
   };
 
   const getBookingButtonStyle = (mentor) => {
-    if (mentor.has_requested || mentor.available === false) {
+    // ---------- MINIMAL CHANGE ----------
+    // Use 'availability' field (from alumni data) rather than `available`
+    if (mentor.has_requested || (mentor.availability && mentor.availability !== 'Available')) {
       return 'bg-gray-300 text-gray-500 cursor-not-allowed';
     }
     if (bookingMentorId === mentor.id) {
@@ -147,8 +165,22 @@ const MentorshipHub = () => {
   };
 
   const isMentorAvailable = (mentor) => {
-    return mentor.available !== false && !mentor.has_requested;
+    // ---------- MINIMAL CHANGE ----------
+    // Consider mentor available only if availability === 'Available' and not requested
+    return (mentor.availability ? mentor.availability === 'Available' : mentor.available !== false) && !mentor.has_requested;
   };
+
+  // -------------------------
+  // NEW: separate effect to lock background scroll when modal is open
+  // -------------------------
+  useEffect(() => {
+    // only change overflow when modal state changes
+    document.body.style.overflow = showBookingModal ? 'hidden' : 'auto';
+    return () => {
+      // cleanup: reset when component unmounts
+      document.body.style.overflow = 'auto';
+    };
+  }, [showBookingModal]);
 
   return (
     <div className="py-8 bg-gray-50 min-h-screen">
@@ -209,7 +241,8 @@ const MentorshipHub = () => {
                 onChange={(e) => setLocationFilter(e.target.value)}
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               >
-                <option value="">All Locations</option>
+                {/* keep label text same to avoid changing UI — but options are availability statuses */}
+                <option value="">All Mentors</option>
                 {locationOptions.map(location => (
                   <option key={location} value={location}>{location}</option>
                 ))}
@@ -287,11 +320,12 @@ const MentorshipHub = () => {
                 <div className="flex items-start space-x-4">
                   <div className="relative">
                     <img 
-                      src={mentor.image || getFallbackImage(mentor.name)}
-                      alt={mentor.name}
+                      // prefer users.name/image if backend includes relation, otherwise keep legacy fields
+                      src={mentor.profile_image || mentor.image || getFallbackImage(mentor.users?.name || mentor.name)}
+                      alt={mentor.users?.name || mentor.name}
                       className="w-20 h-20 rounded-full object-cover"
                       onError={(e) => {
-                        e.target.src = getFallbackImage(mentor.name);
+                        e.target.src = getFallbackImage(mentor.users?.name || mentor.name);
                       }}
                     />
                     <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white ${
@@ -302,8 +336,10 @@ const MentorshipHub = () => {
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{mentor.name}</h3>
+                        {/* ---------- MINIMAL CHANGE: use users?.name when present ---------- */}
+                        <h3 className="text-xl font-bold text-gray-900">{mentor.users?.name || mentor.name}</h3>
                         <p className="text-blue-600 font-semibold">{mentor.expertise || 'Industry Expert'}</p>
+                        {/* keep company rendering, but it may be undefined for alumni-based mentors */}
                         <p className="text-gray-600">{mentor.company || 'Various Companies'}</p>
                       </div>
                       <div className="text-right">
@@ -316,6 +352,7 @@ const MentorshipHub = () => {
                     </div>
 
                     <div className="flex items-center text-sm text-gray-600 space-x-4 mb-3">
+                      {/* location may be absent for alumni mentors; keep conditional */}
                       {mentor.location && (
                         <span className="flex items-center">
                           <MapPin className="w-4 h-4 mr-1" />
@@ -329,7 +366,7 @@ const MentorshipHub = () => {
                     </div>
 
                     <p className="text-gray-700 mb-4 line-clamp-2">
-                      {mentor.bio || `${mentor.name} is an experienced professional ready to guide you in your career journey.`}
+                      {mentor.bio || `${mentor.users?.name || mentor.name} is an experienced professional ready to guide you in your career journey.`}
                     </p>
 
                     {mentor.expertise && (
@@ -406,8 +443,9 @@ const MentorshipHub = () => {
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 Request Mentorship Session
               </h3>
+              {/* ---------- MINIMAL CHANGE: show users?.name if present ---------- */}
               <p className="text-gray-600 mb-6">
-                with <span className="font-semibold">{selectedMentor.name}</span>
+                with <span className="font-semibold">{selectedMentor.users?.name || selectedMentor.name}</span>
               </p>
 
               <form onSubmit={handleBookingSubmit} className="space-y-4">
