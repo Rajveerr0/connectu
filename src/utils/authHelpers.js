@@ -1,5 +1,7 @@
+// src/helpers/authhelpers.js
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { notifyError } from '../utils/notify';
 
 export const useProtectedAction = () => {
   const { isAuthenticated } = useAuth();
@@ -7,9 +9,9 @@ export const useProtectedAction = () => {
 
   const requireAuth = (action, redirectPath = '/login') => {
     if (!isAuthenticated) {
-      alert('Please login first to access this feature');
-      navigate(redirectPath, { 
-        state: { from: window.location.pathname } 
+      notifyError('Please log in to access this feature.');
+      navigate(redirectPath, {
+        state: { from: window.location.pathname },
       });
       return false;
     }
@@ -19,30 +21,23 @@ export const useProtectedAction = () => {
   return { requireAuth };
 };
 
-// Hook for checking if user can apply/book/collaborate
 export const useApplication = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const canApply = (type) => {
     if (!isAuthenticated) {
-      alert('Please login first to access this feature');
-      navigate('/login', { 
-        state: { from: window.location.pathname } 
+      notifyError('Please log in to access this feature.');
+      navigate('/login', {
+        state: { from: window.location.pathname },
       });
       return false;
     }
 
-    // Add role-based restrictions if needed
     switch (type) {
       case 'mentorship':
-        // Both students and alumni can book mentorship sessions
-        return true;
       case 'entrepreneur':
-        // Both students and alumni can collaborate with entrepreneurs
-        return true;
       case 'job':
-        // Both students and alumni can apply for jobs
         return true;
       default:
         return true;

@@ -17,11 +17,17 @@ import Dashboard from './pages/Dashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
 import AlumniDashboard from './pages/alumni/AlumniDashboard';
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { notifyWarning } from './utils/notify'; // uses react-toastify internally
+
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, isAuthenticated } = useAuth();
   
   if (!isAuthenticated) {
+    // show non-blocking toast instead of browser alert, then redirect to login
+    notifyWarning('Please log in to access this feature.');
     return <Navigate to="/login" replace />;
   }
 
@@ -107,7 +113,11 @@ function AppContent() {
           </Routes>
         </main>
       </AnimatePresence>
+
       <Footer />
+
+      {/* Toast container (placed once at the root so any notify* calls work) */}
+      <ToastContainer />
     </div>
   );
 }

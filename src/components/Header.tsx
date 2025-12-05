@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Menu, X, Users, ChevronDown, User, LogOut, Settings } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -15,14 +16,24 @@ const Header = () => {
     setIsUserMenuOpen(false);
   };
 
-  const handleApplyAction = (path) => {
-    if (!isAuthenticated) {
-      alert('Please login first to access this feature');
-      navigate('/login');
-      return;
-    }
-    navigate(path);
-  };
+
+
+const handleApplyAction = (path) => {
+  if (!isAuthenticated) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Login Required',
+      text: 'Please log in to access this feature.',
+      confirmButtonColor: '#2563eb',
+      confirmButtonText: 'Okay'
+    });
+    
+    navigate('/login');
+    return;
+  }
+  navigate(path);
+};
+
 
   const getUserDashboardPath = () => {
     switch (user?.role) {
